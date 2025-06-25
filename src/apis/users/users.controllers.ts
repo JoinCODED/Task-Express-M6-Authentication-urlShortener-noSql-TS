@@ -1,27 +1,76 @@
 import { NextFunction, Request, Response } from "express";
+import bcrypt from "bcrypt";
 import User from "../../models/User";
+import dotenv from "dotenv";
+import jwt, { SignOptions } from "jsonwebtoken";
 
-export const signup = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const newUser = await User.create(req.body);
-        res.status(201).json(newUser);
-    } catch (err) {
-        next(err);
+const generateToken = (id: string, username: string) => {
+  const token = jwt.sign({ userid: id }, process.env.JWT_SK as string, {
+    expiresIn: process.env.JWT_expiresIn as SignOptions["expiresIn"],
+  });
+  return token;
+};
+dotenv.config();
+const SALT = 10;
+
+export const signup = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { username, password } = req.body;
+    const existingUser = await User.findOne({ username });
+
+    if (existingUser) {
+      res.status(400).json({ message: "username already in use" });
     }
+    const hashedPassword = await bcrypt.hash(password, SALT);
+    const newUser = await User.create({ username, password: hashedPassword });
+    generateToken(String(newUser._id), username);
+    res.status(201).json(newUser);
+  } catch (err) {
+    next(err);
+  }
 };
 
-export const signin = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-    } catch (err) {
-        next(err);
+export const signin = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { username, password } = req.body;
+    const existingUser = await User.findOne({ username });
+    if (!existingUser) {
+      res.status(400).json({ message: "Invalid Username or passworn" });
     }
+    const isPassValid = await bcrypt.compare(password, existingUser?.password!);
+
+    if (isPassValid) {
+      const token = generateToken(
+        String(existingUser?._id),
+        existingUser?.username!
+      );
+
+      res.json(token);
+    } else {
+      res.status(400).json("Invalid Username or passworn");
+    }
+  } catch (err) {
+    next(err);
+  }
 };
 
-export const getUsers = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const users = await User.find().populate("urls");
-        res.status(201).json(users);
-    } catch (err) {
-        next(err);
-    }
+export const getUsers = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const users = await User.find().populate("urls");
+    res.status(201).json(users);
+  } catch (err) {
+    next(err);
+  }
 };
