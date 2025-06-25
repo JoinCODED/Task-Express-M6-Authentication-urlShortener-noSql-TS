@@ -27,8 +27,8 @@ export const signup = async (
     }
     const hashedPassword = await bcrypt.hash(password, SALT);
     const newUser = await User.create({ username, password: hashedPassword });
-    generateToken(String(newUser._id), username);
-    res.status(201).json(newUser);
+    const token = generateToken(String(newUser._id), username);
+    res.status(201).json({ user: newUser, token });
   } catch (err) {
     next(err);
   }
@@ -74,3 +74,5 @@ export const getUsers = async (
     next(err);
   }
 };
+
+//passport.js there are manylibraries to teach me many ways like we can get the email and check with it i think i need to check :>
