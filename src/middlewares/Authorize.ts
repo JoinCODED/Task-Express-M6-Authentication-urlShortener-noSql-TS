@@ -26,7 +26,7 @@ export const Authorize = async (
     next();
     // } else {
     //   res.status(403).json("Not Authorized");
-    // }
+    // };
   } catch (error) {
     next(error);
   }
