@@ -3,11 +3,16 @@ import bcrypt from "bcrypt";
 import User from "../../models/User";
 import dotenv from "dotenv";
 import jwt, { SignOptions } from "jsonwebtoken";
+import { signupSchema } from "../../models/UserValidation";
 
-const generateToken = (id: string, username: string) => {
-  const token = jwt.sign({ userid: id }, process.env.JWT_SK as string, {
-    expiresIn: process.env.JWT_expiresIn as SignOptions["expiresIn"],
-  });
+const generateToken = (id: string, username: string, admin: boolean) => {
+  const token = jwt.sign(
+    { userid: id, username, admin },
+    process.env.JWT_SK as string,
+    {
+      expiresIn: process.env.JWT_expiresIn as SignOptions["expiresIn"],
+    }
+  );
   return token;
 };
 dotenv.config();
@@ -19,7 +24,12 @@ export const signup = async (
   next: NextFunction
 ) => {
   try {
-    const { username, password } = req.body;
+    const parsed = signupSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ errors: parsed.error.flatten().fieldErrors });
+      return;
+    }
+    const { username, password, admin } = req.body;
     const existingUser = await User.findOne({ username });
 
     if (existingUser) {
@@ -27,7 +37,7 @@ export const signup = async (
     }
     const hashedPassword = await bcrypt.hash(password, SALT);
     const newUser = await User.create({ username, password: hashedPassword });
-    const token = generateToken(String(newUser._id), username);
+    const token = generateToken(String(newUser._id), username, admin);
     res.status(201).json({ user: newUser, token });
   } catch (err) {
     next(err);
@@ -47,10 +57,20 @@ export const signin = async (
     }
     const isPassValid = await bcrypt.compare(password, existingUser?.password!);
 
+    const adminUsers = ["Azizi", "Aziz", "Fatma", "Aziz12"];
+
     if (isPassValid) {
+      if (
+        adminUsers.includes(existingUser?.username!) &&
+        !existingUser?.admin
+      ) {
+        await User.updateOne({ _id: existingUser?._id! }, { admin: true });
+        existingUser!.admin = true;
+      }
       const token = generateToken(
         String(existingUser?._id),
-        existingUser?.username!
+        existingUser?.username!,
+        existingUser?.admin!
       );
 
       res.json(token);

@@ -22,11 +22,11 @@ export const Authorize = async (
     console.log(payload);
     //last step is Attach the payload to the request
     (req as any).user = payload;
-    // if ((req as any).user.role === "admin") {
-    next();
-    // } else {
-    //   res.status(403).json("Not Authorized");
-    // };
+    if ((req as any).user.admin === true) {
+      next();
+    } else {
+      res.status(403).json("Not Authorized");
+    }
   } catch (error) {
     next(error);
   }
